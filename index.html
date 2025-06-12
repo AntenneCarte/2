@@ -148,6 +148,7 @@
               var freq = parseFloat(freqStr.replace(/[^\d.]/g, '')) || 0;
               var pci = props["PCI"] || "N/A";
               var commissioningDate = props["Commissioning date"] || "N/A";
+              var adaptativeMode = props["Adaptative mode"] === "0" ? "No" : "Yes";
 
               var targetLayer;
               if (freq < 900) {
@@ -190,7 +191,8 @@
                       `<b>Fréquence :</b> ${freq} MHz<br>` +
                       `<b>Puissance :</b> Soon available<br>` +
                       `<b>PCI :</b> ${pci}<br>` +
-                      `<b>Commissioning Date :</b> ${commissioningDate}`;
+                      `<b>Commissioning Date :</b> ${commissioningDate}<br>` +
+                      `<b>Adaptative Mode :</b> ${adaptativeMode}`;
                     sector.bindPopup(popupContent);
 
                     layers[currentFrequency].sectors.addLayer(sector);
