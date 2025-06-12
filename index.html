@@ -34,7 +34,7 @@
       font-size: 10px;
       color: gray;
     }
-    #operator-group, #freq-group {
+    #operator-group, #freq-group, #tech-group {
       display: flex;
       justify-content: space-between;
       gap: 10px;
@@ -52,6 +52,11 @@
       <label><input type="radio" name="operatorFilter" value="Sunrise" checked> Sunrise</label>
       <label><input type="radio" name="operatorFilter" value="Salt"> Salt</label>
       <label><input type="radio" name="operatorFilter" value="Swisscom"> Swisscom</label>
+    </div>
+    <div id="tech-group">
+      <label><input type="radio" name="techFilter" value="3G" checked> 3G</label>
+      <label><input type="radio" name="techFilter" value="4G"> 4G</label>
+      <label><input type="radio" name="techFilter" value="5G"> 5G</label>
     </div>
     <div id="freq-group">
       <label><input type="radio" name="freqFilter" value="freq1" checked> 750 MHz</label>
@@ -81,9 +86,21 @@
     }).addTo(map);
 
     var geojsonURLs = {
-      Sunrise: 'https://raw.githubusercontent.com/AntenneCarte/1/main/Sunrise_5G.geojson',
-      Salt: 'https://raw.githubusercontent.com/AntenneCarte/1/main/Salt_5G.geojson',
-      Swisscom: 'https://raw.githubusercontent.com/AntenneCarte/1/main/Swisscom_5G.geojson'
+      Sunrise: {
+        "3G": 'https://raw.githubusercontent.com/AntenneCarte/1/main/Sunrise_3G.geojson',
+        "4G": 'https://raw.githubusercontent.com/AntenneCarte/1/main/Sunrise_4G.geojson',
+        "5G": 'https://raw.githubusercontent.com/AntenneCarte/1/main/Sunrise_5G.geojson'
+      },
+      Salt: {
+        "3G": 'https://raw.githubusercontent.com/AntenneCarte/1/main/Salt_3G.geojson',
+        "4G": 'https://raw.githubusercontent.com/AntenneCarte/1/main/Salt_4G.geojson',
+        "5G": 'https://raw.githubusercontent.com/AntenneCarte/1/main/Salt_5G.geojson'
+      },
+      Swisscom: {
+        "3G": 'https://raw.githubusercontent.com/AntenneCarte/1/main/Swisscom_3G.geojson',
+        "4G": 'https://raw.githubusercontent.com/AntenneCarte/1/main/Swisscom_4G.geojson',
+        "5G": 'https://raw.githubusercontent.com/AntenneCarte/1/main/Swisscom_5G.geojson'
+      }
     };
 
     var layers = {
@@ -94,6 +111,7 @@
     };
 
     var currentOperator = "Sunrise";
+    var currentTechnology = "3G";
     var currentFrequency = "freq1";
     var sectorRadius = 500 / 3;
     const MIN_ZOOM_FOR_SECTORS = 10;
@@ -132,7 +150,7 @@
       var markerCoords = {};
       var mapCenter = map.getCenter();
 
-      fetch(geojsonURLs[currentOperator])
+      fetch(geojsonURLs[currentOperator][currentTechnology])
         .then(response => response.json())
         .then(data => {
           data.features.forEach(feature => {
@@ -191,46 +209,4 @@
                       `<b>Fréquence :</b> ${freq} MHz<br>` +
                       `<b>Puissance :</b> Soon available<br>` +
                       `<b>PCI :</b> ${pci}<br>` +
-                      `<b>Commissioning Date :</b> ${commissioningDate}<br>` +
-                      `<b>Adaptative Mode :</b> ${adaptativeMode}`;
-                    sector.bindPopup(popupContent);
-
-                    layers[currentFrequency].sectors.addLayer(sector);
-                  }
-                }
-              }
-            }
-          });
-
-          map.addLayer(layers[currentFrequency].markers);
-          map.addLayer(layers[currentFrequency].sectors);
-        })
-        .catch(err => console.error("Erreur chargement GeoJSON:", err));
-    }
-
-    document.querySelectorAll('input[name="operatorFilter"]').forEach(radio => {
-      radio.addEventListener('change', function() {
-        if (this.checked) {
-          currentOperator = this.value;
-          updateMap();
-        }
-      });
-    });
-
-    document.querySelectorAll('input[name="freqFilter"]').forEach(radio => {
-      radio.addEventListener('change', function() {
-        if (this.checked) {
-          currentFrequency = this.value;
-          updateMap();
-        }
-      });
-    });
-
-    map.on('zoomend moveend', function () {
-      updateMap();
-    });
-
-    updateMap();
-  </script>
-</body>
-</html>
+                      `<b>Commissioning Date :</b>
