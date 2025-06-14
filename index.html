@@ -7,6 +7,7 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <style>
     html, body, #map {
@@ -34,19 +35,14 @@
     }
     #operator-group, #tech-group, #freq-group {
       display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    #operator-group {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    #operator-group > div:first-child {
-      display: flex;
+      flex-direction: row;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
+    }
+    .group-label {
+      font-weight: bold;
+      white-space: nowrap;
     }
     .button-group {
       display: flex;
@@ -93,6 +89,16 @@
       font-size: 9px;
       color: gray;
       white-space: nowrap;
+      border: 1px solid #ccc;
+      padding: 2px 4px;
+      border-radius: 3px;
+      margin-left: auto;
+    }
+    #operator-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
     }
     @media (max-width: 600px) {
       #controls {
@@ -105,22 +111,31 @@
         padding: 2px 5px;
         font-size: 9px;
       }
+      #operator-group {
+        flex-wrap: wrap;
+      }
+      #last-update {
+        margin-left: 0;
+        margin-top: 3px;
+      }
     }
   </style>
 </head>
 <body>
 
+  <div id="map"></div>
   <div id="controls">
     <div id="operator-group">
-      <div><strong>Operator</strong><div id="last-update">Last update May 2025</div></div>
+      <span class="group-label">Operator:</span>
       <div class="button-group">
         <button class="filter-button active" data-type="operator" data-value="Sunrise">Sunrise</button>
         <button class="filter-button" data-type="operator" data-value="Salt">Salt</button>
         <button class="filter-button" data-type="operator" data-value="Swisscom">Swisscom</button>
       </div>
+      <div id="last-update">Last update May 2025</div>
     </div>
     <div id="tech-group">
-      <strong>Technology</strong>
+      <span class="group-label">Technology:</span>
       <div class="button-group">
         <button class="filter-button" data-type="tech" data-value="3G">3G</button>
         <button class="filter-button" data-type="tech" data-value="4G">4G</button>
@@ -128,7 +143,7 @@
       </div>
     </div>
     <div id="freq-group">
-      <strong>Frequency</strong>
+      <span class="group-label">Frequency:</span>
       <div class="button-group">
         <button class="filter-button active" data-type="freq" data-value="freq1">700 MHz</button>
         <button class="filter-button" data-type="freq" data-value="freq2">800 MHz</button>
@@ -141,8 +156,6 @@
       </div>
     </div>
   </div>
-
-  <div id="map"></div>
 
   <script>
     var gk_isXlsx = false;
@@ -158,26 +171,21 @@
           var firstSheetName = workbook.SheetNames[0];
           var worksheet = workbook.Sheets[firstSheetName];
 
-          // Convert sheet to JSON to filter blank rows
           var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-          // Filter out blank rows (rows where all cells are empty, null, or undefined)
           var filteredData = jsonData.filter(row => row.some(filledCell));
 
-          // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
           var headerRowIndex = filteredData.findIndex((row, index) =>
             row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
           );
-          // Fallback
           if (headerRowIndex === -1 || headerRowIndex > 25) {
             headerRowIndex = 0;
           }
 
-          // Convert filtered JSON back to CSV
           var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
           csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
           return csv;
         } catch (e) {
-          console.error(e);
+          console.error("Error in loadFileData for file:", filename, e);
           return "";
         }
       }
@@ -250,7 +258,12 @@
     function checkFrequenciesAvailability(operator, technology) {
       const url = geojsonURLs[operator][technology];
       fetch(url)
-        .then(response => response.json())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status} for URL: ${url}`);
+          }
+          return response.json();
+        })
         .then(data => {
           const frequencyCounts = {
             freq1: 0, // 700 MHz
@@ -284,7 +297,9 @@
             btn.classList.toggle('no-antennas', frequencyCounts[freqValue] === 0);
           });
         })
-        .catch(err => console.error("Erreur lors de la vérification des fréquences:", err));
+        .catch(err => {
+          console.error("Error in checkFrequenciesAvailability for", operator, technology, "URL:", url, err);
+        });
     }
 
     function updateMap() {
@@ -300,7 +315,12 @@
       const markerCoords = {};
 
       fetch(url)
-        .then(response => response.json())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status} for URL: ${url}`);
+          }
+          return response.json();
+        })
         .then(data => {
           data.features.forEach(feature => {
             if (feature.geometry.type !== "Point") return;
@@ -367,7 +387,9 @@
           map.addLayer(layers[currentFrequency].markers);
           map.addLayer(layers[currentFrequency].sectors);
         })
-        .catch(err => console.error("Erreur chargement GeoJSON:", err));
+        .catch(err => {
+          console.error("Error in updateMap for", currentOperator, currentTechnology, "URL:", url, err);
+        });
     }
 
     function updateButtonStyles(type, value) {
