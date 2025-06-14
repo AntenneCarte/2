@@ -1,43 +1,4 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <title>Carte antennes sans clusters</title>
@@ -112,6 +73,22 @@
     .filter-button.active:hover {
       background: #0056b3;
     }
+    .filter-button.no-antennas {
+      background: #ff6666;
+      color: white;
+      border-color: #ff6666;
+    }
+    .filter-button.no-antennas:hover {
+      background: #cc3333;
+    }
+    .filter-button.no-antennas.active {
+      background: #990000;
+      color: white;
+      border-color: #990000;
+    }
+    .filter-button.no-antennas.active:hover {
+      background: #660000;
+    }
     #last-update {
       font-size: 9px;
       color: gray;
@@ -153,10 +130,14 @@
     <div id="freq-group">
       <strong>Frequency</strong>
       <div class="button-group">
-        <button class="filter-button active" data-type="freq" data-value="freq1">750 MHz</button>
-        <button class="filter-button" data-type="freq" data-value="freq2">950 MHz</button>
-        <button class="filter-button" data-type="freq" data-value="freq3">2100 MHz</button>
-        <button class="filter-button" data-type="freq" data-value="freq4">3500 MHz</button>
+        <button class="filter-button active" data-type="freq" data-value="freq1">700 MHz</button>
+        <button class="filter-button" data-type="freq" data-value="freq2">800 MHz</button>
+        <button class="filter-button" data-type="freq" data-value="freq3">900 MHz</button>
+        <button class="filter-button" data-type="freq" data-value="freq4">1400 MHz</button>
+        <button class="filter-button" data-type="freq" data-value="freq5">1800 MHz</button>
+        <button class="filter-button" data-type="freq" data-value="freq6">2100 MHz</button>
+        <button class="filter-button" data-type="freq" data-value="freq7">2600 MHz</button>
+        <button class="filter-button" data-type="freq" data-value="freq8">3500 MHz</button>
       </div>
     </div>
   </div>
@@ -164,6 +145,45 @@
   <div id="map"></div>
 
   <script>
+    var gk_isXlsx = false;
+    var gk_xlsxFileLookup = {};
+    var gk_fileData = {};
+    function filledCell(cell) {
+      return cell !== '' && cell != null;
+    }
+    function loadFileData(filename) {
+      if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+        try {
+          var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+          var firstSheetName = workbook.SheetNames[0];
+          var worksheet = workbook.Sheets[firstSheetName];
+
+          // Convert sheet to JSON to filter blank rows
+          var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+          // Filter out blank rows (rows where all cells are empty, null, or undefined)
+          var filteredData = jsonData.filter(row => row.some(filledCell));
+
+          // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+          var headerRowIndex = filteredData.findIndex((row, index) =>
+            row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+          );
+          // Fallback
+          if (headerRowIndex === -1 || headerRowIndex > 25) {
+            headerRowIndex = 0;
+          }
+
+          // Convert filtered JSON back to CSV
+          var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+          csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+          return csv;
+        } catch (e) {
+          console.error(e);
+          return "";
+        }
+      }
+      return gk_fileData[filename] || "";
+    }
+
     var map = L.map('map', {
       zoomControl: false
     }).setView([46.8, 8.2], 8);
@@ -203,7 +223,11 @@
       freq1: { markers: L.layerGroup(), sectors: L.layerGroup() },
       freq2: { markers: L.layerGroup(), sectors: L.layerGroup() },
       freq3: { markers: L.layerGroup(), sectors: L.layerGroup() },
-      freq4: { markers: L.layerGroup(), sectors: L.layerGroup() }
+      freq4: { markers: L.layerGroup(), sectors: L.layerGroup() },
+      freq5: { markers: L.layerGroup(), sectors: L.layerGroup() },
+      freq6: { markers: L.layerGroup(), sectors: L.layerGroup() },
+      freq7: { markers: L.layerGroup(), sectors: L.layerGroup() },
+      freq8: { markers: L.layerGroup(), sectors: L.layerGroup() }
     };
 
     function createAzimuthSector(lat, lon, azimuth, angleWidth, radius) {
@@ -221,6 +245,46 @@
         points.push([newLat, newLon]);
       }
       return points;
+    }
+
+    function checkFrequenciesAvailability(operator, technology) {
+      const url = geojsonURLs[operator][technology];
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          const frequencyCounts = {
+            freq1: 0, // 700 MHz
+            freq2: 0, // 800 MHz
+            freq3: 0, // 900 MHz
+            freq4: 0, // 1400 MHz
+            freq5: 0, // 1800 MHz
+            freq6: 0, // 2100 MHz
+            freq7: 0, // 2600 MHz
+            freq8: 0  // 3500 MHz
+          };
+
+          data.features.forEach(feature => {
+            if (feature.geometry.type !== "Point") return;
+            const props = feature.properties;
+            const freqStr = props["frequency (MHz)"] || "0 MHz";
+            const freq = parseFloat(freqStr.replace(/[^\d.]/g, '')) || 0;
+
+            if (freq < 800) frequencyCounts.freq1++;
+            else if (freq < 900) frequencyCounts.freq2++;
+            else if (freq < 1000) frequencyCounts.freq3++;
+            else if (freq < 1500) frequencyCounts.freq4++;
+            else if (freq < 1900) frequencyCounts.freq5++;
+            else if (freq < 2300) frequencyCounts.freq6++;
+            else if (freq < 2700) frequencyCounts.freq7++;
+            else frequencyCounts.freq8++;
+          });
+
+          document.querySelectorAll('.filter-button[data-type="freq"]').forEach(btn => {
+            const freqValue = btn.dataset.value;
+            btn.classList.toggle('no-antennas', frequencyCounts[freqValue] === 0);
+          });
+        })
+        .catch(err => console.error("Erreur lors de la vérification des fréquences:", err));
     }
 
     function updateMap() {
@@ -248,10 +312,14 @@
             const azimut = parseFloat((props["Azimut"] || "0°").replace("°", "")) || 0;
 
             let targetLayer = null;
-            if (freq < 900) targetLayer = "freq1";
-            else if (freq <= 1000) targetLayer = "freq2";
-            else if (freq <= 3000) targetLayer = "freq3";
-            else targetLayer = "freq4";
+            if (freq < 800) targetLayer = "freq1"; // 700 MHz
+            else if (freq < 900) targetLayer = "freq2"; // 800 MHz
+            else if (freq < 1000) targetLayer = "freq3"; // 900 MHz
+            else if (freq < 1500) targetLayer = "freq4"; // 1400 MHz
+            else if (freq < 1900) targetLayer = "freq5"; // 1800 MHz
+            else if (freq < 2300) targetLayer = "freq6"; // 2100 MHz
+            else if (freq < 2700) targetLayer = "freq7"; // 2600 MHz
+            else targetLayer = "freq8"; // 3500 MHz
 
             if (targetLayer === currentFrequency) {
               const key = `${lat.toFixed(6)},${lon.toFixed(6)}`;
@@ -312,6 +380,7 @@
       btn.addEventListener('click', function () {
         currentOperator = this.dataset.value;
         updateButtonStyles('operator', currentOperator);
+        checkFrequenciesAvailability(currentOperator, currentTechnology);
         updateMap();
       });
     });
@@ -320,6 +389,7 @@
       btn.addEventListener('click', function () {
         currentTechnology = this.dataset.value;
         updateButtonStyles('tech', currentTechnology);
+        checkFrequenciesAvailability(currentOperator, currentTechnology);
         updateMap();
       });
     });
@@ -333,6 +403,7 @@
     });
 
     map.on('zoomend moveend', updateMap);
+    checkFrequenciesAvailability(currentOperator, currentTechnology);
     updateMap();
   </script>
 </body>
