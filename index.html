@@ -44,7 +44,7 @@
       font-weight: bold;
       white-space: nowrap;
     }
-    .button-group {
+    .button-group, .button-group-second {
       display: flex;
       flex-wrap: wrap;
       gap: 3px;
@@ -118,6 +118,16 @@
         margin-left: 0;
         margin-top: 3px;
       }
+      #freq-group {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .button-group, .button-group-second {
+        flex-wrap: nowrap;
+      }
+      .button-group-second {
+        margin-top: 3px;
+      }
     }
   </style>
 </head>
@@ -149,6 +159,8 @@
         <button class="filter-button" data-type="freq" data-value="freq2">800 MHz</button>
         <button class="filter-button" data-type="freq" data-value="freq3">900 MHz</button>
         <button class="filter-button" data-type="freq" data-value="freq4">1400 MHz</button>
+      </div>
+      <div class="button-group-second">
         <button class="filter-button" data-type="freq" data-value="freq5">1800 MHz</button>
         <button class="filter-button" data-type="freq" data-value="freq6">2100 MHz</button>
         <button class="filter-button" data-type="freq" data-value="freq7">2600 MHz</button>
