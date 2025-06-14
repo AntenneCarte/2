@@ -102,6 +102,13 @@
       gap: 6px;
       flex-wrap: nowrap;
     }
+    /* New CSS for popup size */
+    .leaflet-popup-content {
+        max-width: 150px !important; /* Adjust this value as needed, roughly half of typical default */
+        font-size: 11px; /* Smaller font size for more compact content */
+    }
+    /* End New CSS for popup size */
+
     @media (max-width: 600px) {
       #controls {
         top: 3px;
@@ -544,7 +551,6 @@
       btn.addEventListener('click', function () {
         currentOperator = this.dataset.value;
         updateButtonStyles('operator', currentOperator);
-        // When operator or tech changes, we need to re-check frequency availability
         checkFrequenciesAvailability(currentOperator, currentTechnology);
       });
     });
@@ -553,7 +559,6 @@
       btn.addEventListener('click', function () {
         currentTechnology = this.dataset.value;
         updateButtonStyles('tech', currentTechnology);
-        // When operator or tech changes, we need to re-check frequency availability
         checkFrequenciesAvailability(currentOperator, currentTechnology);
       });
     });
@@ -562,14 +567,14 @@
       btn.addEventListener('click', function () {
         currentFrequency = this.dataset.value;
         updateButtonStyles('freq', currentFrequency);
-        updateMap(); // Just update the map based on the new frequency filter
+        updateMap();
       });
     });
 
     map.on('zoomend moveend', updateMap);
 
     // Initial load:
-    checkFrequenciesAvailability(currentOperator, currentTechnology); // This will then call updateMap
+    checkFrequenciesAvailability(currentOperator, currentTechnology);
   </script>
 </body>
 </html>
