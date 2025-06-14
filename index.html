@@ -103,9 +103,12 @@
     @media (max-width: 600px) {
       #controls {
         top: 3px;
-        right: 3px;
+        left: 0;
+        right: 0;
+        width: 100%;
         padding: 4px;
-        min-width: 140px;
+        min-width: unset;
+        box-sizing: border-box;
       }
       .filter-button {
         padding: 2px 5px;
