@@ -222,8 +222,10 @@
       return gk_fileData[filename] || "";
     }
 
+    // Initialize map without autoClose option to prevent map clicks from closing popups
     var map = L.map('map', {
-      zoomControl: false
+      zoomControl: false,
+      closePopupOnClick: false // This prevents map clicks from closing popups, but allows the 'x' button to work.
     }).setView([46.8, 8.2], 8);
 
     L.control.zoom({ position: 'bottomleft' }).addTo(map);
@@ -391,8 +393,6 @@
     }
 
     function updateMap(forceRedraw = false) {
-      // Only clear and redraw layers if forceRedraw is true (e.g., filter change, zoom end)
-      // Or if the zoom level crosses the MIN_ZOOM_FOR_SECTORS threshold
       const currentZoom = map.getZoom();
       const shouldRedrawSectors = (map.options.lastZoom < MIN_ZOOM_FOR_SECTORS && currentZoom >= MIN_ZOOM_FOR_SECTORS) ||
                                  (map.options.lastZoom >= MIN_ZOOM_FOR_SECTORS && currentZoom < MIN_ZOOM_FOR_SECTORS);
@@ -403,20 +403,12 @@
           return;
       }
 
-      // Store current popups to re-open them later if needed
-      const openPopups = [];
-      map.eachLayer(function(layer) {
-          if (layer instanceof L.Popup) {
-              // Ensure we only store popups that are currently open
-              if (map.hasLayer(layer) && layer.getLatLng()) {
-                  openPopups.push({
-                      latlng: layer.getLatLng(),
-                      content: layer.getContent()
-                  });
-              }
-          }
-      });
-
+      // If a filter change (frequency/technology/operator) triggered this, close any open popup.
+      // This is determined by `forceRedraw` being true (triggered by filter buttons).
+      // We don't close if it's just a zoom change that causes redraw.
+      if (forceRedraw) {
+          map.closePopup();
+      }
 
       // Clear all existing layers
       for (const key in layers) {
@@ -435,17 +427,17 @@
               .then(response => response.json())
               .then(data => {
                   cachedData[url] = data;
-                  renderMapFeatures(data, openPopups); // Pass open popups to re-open logic
+                  renderMapFeatures(data);
               })
               .catch(err => console.error("Error fetching data in updateMap:", err));
       } else {
-          renderMapFeatures(cachedData[url], openPopups); // Pass open popups to re-open logic
+          renderMapFeatures(cachedData[url]);
       }
 
       map.options.lastZoom = currentZoom; // Update lastZoom
     }
 
-    function renderMapFeatures(data, openPopupsToReopen = []) {
+    function renderMapFeatures(data) {
         const mapCenter = map.getCenter();
         const antennasByLocationAndAzimuth = {}; // Groups by lat, lon, and azimuth for sector drawing and popups
         const antennasByLocation = {}; // Groups by lat, lon for marker drawing
@@ -491,7 +483,7 @@
 
             // A marker should appear if ANY antenna at this spot matches the current filter (either "all" or specific freq)
             const shouldAddMarker = currentFrequency === "all" ||
-                                     antennasAtThisExactLocation.some(ant => ant.targetLayer === currentFrequency);
+                                       antennasAtThisExactLocation.some(ant => ant.targetLayer === currentFrequency);
 
             if (shouldAddMarker) {
                 const firstAntenna = antennasAtThisExactLocation[0]; // Coordinates for the marker
@@ -568,14 +560,6 @@
             map.addLayer(layers[currentFrequency].markers);
             map.addLayer(layers[currentFrequency].sectors);
         }
-
-        // Re-open previously open popups
-        openPopupsToReopen.forEach(popupData => {
-            L.popup({autoPan: false})
-                .setLatLng(popupData.latlng)
-                .setContent(popupData.content)
-                .openOn(map);
-        });
     }
 
 
@@ -589,6 +573,8 @@
       btn.addEventListener('click', function () {
         currentOperator = this.dataset.value;
         updateButtonStyles('operator', currentOperator);
+        // Always force redraw and thus close popups on operator change
+        map.closePopup(); // Ensure any open popup is closed
         checkFrequenciesAvailability(currentOperator, currentTechnology);
       });
     });
@@ -597,6 +583,8 @@
       btn.addEventListener('click', function () {
         currentTechnology = this.dataset.value;
         updateButtonStyles('tech', currentTechnology);
+        // Always force redraw and thus close popups on technology change
+        map.closePopup(); // Ensure any open popup is closed
         checkFrequenciesAvailability(currentOperator, currentTechnology);
       });
     });
@@ -605,16 +593,36 @@
       btn.addEventListener('click', function () {
         currentFrequency = this.dataset.value;
         updateButtonStyles('freq', currentFrequency);
+        // Always force redraw and thus close popups on frequency change
+        map.closePopup(); // Ensure any open popup is closed
         updateMap(true); // Force redraw when filter changes
       });
     });
 
     // Only update map on zoomend, not moveend
     map.on('zoomend', function() {
-        updateMap(true); // Force redraw on zoom changes
+        updateMap(true); // Force redraw on zoom changes, but popups remain if they're still valid (sectors change visibility)
     });
     // Initialize lastZoom property for comparison
     map.options.lastZoom = map.getZoom();
+
+    // Custom map click listener to close popup if no drag occurred
+    let mapWasDragged = false;
+    map.on('mousedown', function() {
+        mapWasDragged = false;
+    });
+    map.on('dragend', function() {
+        mapWasDragged = true;
+    });
+    map.on('click', function(e) {
+        if (!mapWasDragged && map.getPopup()) { // If no drag and a popup is open
+            // Check if the click was on the currently open popup itself
+            const popupContainer = map.getPopup()._container;
+            if (popupContainer && !popupContainer.contains(e.originalEvent.target)) {
+                map.closePopup();
+            }
+        }
+    });
 
     // Initial load:
     checkFrequenciesAvailability(currentOperator, currentTechnology);
