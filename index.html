@@ -102,10 +102,10 @@
       gap: 6px;
       flex-wrap: nowrap;
     }
-    /* New CSS for popup size */
+    /* Updated CSS for popup size */
     .leaflet-popup-content {
-        max-width: 150px !important; /* Adjust this value as needed, roughly half of typical default */
-        font-size: 11px; /* Smaller font size for more compact content */
+        max-width: 120px !important; /* Made even smaller */
+        font-size: 10px; /* Smaller font size for more compact content */
     }
     /* End New CSS for popup size */
 
@@ -368,9 +368,9 @@
                 currentFrequency = "all";
             }
             updateButtonStyles('freq', currentFrequency);
-            updateMap(); // Call updateMap after changing currentFrequency
+            updateMap(true); // Force redraw when filters change
         } else {
-             updateMap(); // Always call updateMap after processing availability
+             updateMap(true); // Always force redraw after processing availability
         }
     }
 
@@ -379,18 +379,45 @@
       const adaptive = antennaData.props["Adaptive mode"];
       const adaptiveText = adaptive == "1" ? "Yes" : "No";
       const pci = antennaData.props["PCI"] || "not available for this antenna";
-      const commissioning = antennaData.props["Commissioning date"] || "Unknown";
+      const commissioning = antennaData.props["Commissioning date"] || "Unknown"; // Keep original property name for data access
 
       return `
         <b>Frequency:</b> ${antennaData.freqStr}<br>
         <b>Power:</b> Coming soon<br>
         <b>Adaptive mode:</b> ${adaptiveText}<br>
         <b>PCI:</b> ${pci}<br>
-        <b>Commissioning date:</b> ${commissioning}
+        <b>Date:</b> ${commissioning}
       `;
     }
 
-    function updateMap() {
+    function updateMap(forceRedraw = false) {
+      // Only clear and redraw layers if forceRedraw is true (e.g., filter change, zoom end)
+      // Or if the zoom level crosses the MIN_ZOOM_FOR_SECTORS threshold
+      const currentZoom = map.getZoom();
+      const shouldRedrawSectors = (map.options.lastZoom < MIN_ZOOM_FOR_SECTORS && currentZoom >= MIN_ZOOM_FOR_SECTORS) ||
+                                 (map.options.lastZoom >= MIN_ZOOM_FOR_SECTORS && currentZoom < MIN_ZOOM_FOR_SECTORS);
+
+      if (!forceRedraw && !shouldRedrawSectors) {
+          // If not forced and no relevant zoom change for sectors, do nothing.
+          // This prevents popups from closing on mere map moves.
+          return;
+      }
+
+      // Store current popups to re-open them later if needed
+      const openPopups = [];
+      map.eachLayer(function(layer) {
+          if (layer instanceof L.Popup) {
+              // Ensure we only store popups that are currently open
+              if (map.hasLayer(layer) && layer.getLatLng()) {
+                  openPopups.push({
+                      latlng: layer.getLatLng(),
+                      content: layer.getContent()
+                  });
+              }
+          }
+      });
+
+
       // Clear all existing layers
       for (const key in layers) {
         map.removeLayer(layers[key].markers);
@@ -408,15 +435,17 @@
               .then(response => response.json())
               .then(data => {
                   cachedData[url] = data;
-                  renderMapFeatures(data);
+                  renderMapFeatures(data, openPopups); // Pass open popups to re-open logic
               })
               .catch(err => console.error("Error fetching data in updateMap:", err));
       } else {
-          renderMapFeatures(cachedData[url]);
+          renderMapFeatures(cachedData[url], openPopups); // Pass open popups to re-open logic
       }
+
+      map.options.lastZoom = currentZoom; // Update lastZoom
     }
 
-    function renderMapFeatures(data) {
+    function renderMapFeatures(data, openPopupsToReopen = []) {
         const mapCenter = map.getCenter();
         const antennasByLocationAndAzimuth = {}; // Groups by lat, lon, and azimuth for sector drawing and popups
         const antennasByLocation = {}; // Groups by lat, lon for marker drawing
@@ -462,7 +491,7 @@
 
             // A marker should appear if ANY antenna at this spot matches the current filter (either "all" or specific freq)
             const shouldAddMarker = currentFrequency === "all" ||
-                                    antennasAtThisExactLocation.some(ant => ant.targetLayer === currentFrequency);
+                                     antennasAtThisExactLocation.some(ant => ant.targetLayer === currentFrequency);
 
             if (shouldAddMarker) {
                 const firstAntenna = antennasAtThisExactLocation[0]; // Coordinates for the marker
@@ -514,7 +543,8 @@
                         }
                     });
 
-                    sector.bindPopup(popupContent);
+                    // Bind popup with autoPan: false
+                    sector.bindPopup(popupContent, {autoPan: false});
 
                     // Add sector to the correct layer(s)
                     if (currentFrequency === "all") {
@@ -538,6 +568,14 @@
             map.addLayer(layers[currentFrequency].markers);
             map.addLayer(layers[currentFrequency].sectors);
         }
+
+        // Re-open previously open popups
+        openPopupsToReopen.forEach(popupData => {
+            L.popup({autoPan: false})
+                .setLatLng(popupData.latlng)
+                .setContent(popupData.content)
+                .openOn(map);
+        });
     }
 
 
@@ -567,11 +605,16 @@
       btn.addEventListener('click', function () {
         currentFrequency = this.dataset.value;
         updateButtonStyles('freq', currentFrequency);
-        updateMap();
+        updateMap(true); // Force redraw when filter changes
       });
     });
 
-    map.on('zoomend moveend', updateMap);
+    // Only update map on zoomend, not moveend
+    map.on('zoomend', function() {
+        updateMap(true); // Force redraw on zoom changes
+    });
+    // Initialize lastZoom property for comparison
+    map.options.lastZoom = map.getZoom();
 
     // Initial load:
     checkFrequenciesAvailability(currentOperator, currentTechnology);
